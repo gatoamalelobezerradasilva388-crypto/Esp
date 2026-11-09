@@ -1,0 +1,688 @@
+
+-- NEXUS UNIVERSAL
+-- Client / ESP / Aim Trainer
+-- Exclusivo para alvos ficticios da experiencia propria
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Config = require(
+    ReplicatedStorage:WaitForChild("NEXUS"):WaitForChild("Config")
+)
+
+local Theme = Config.Theme
+local ESP = Config.ESP
+local Aim = Config.Aim
+
+-- GUI PRINCIPAL
+
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "NEXUS_UNIVERSAL"
+GUI.ResetOnSpawn = false
+GUI.IgnoreGuiInset = true
+GUI.Parent = Player:WaitForChild("PlayerGui")
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(340, 430)
+Main.Position = UDim2.new(0, 20, 0.5, -215)
+Main.BackgroundColor3 = Theme.Background
+Main.BorderSizePixel = 0
+Main.Parent = GUI
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = Main
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Theme.Accent
+stroke.Thickness = 1.5
+stroke.Parent = Main
+
+-- CABECALHO
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 55)
+Header.BackgroundColor3 = Theme.Panel
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 12)
+headerCorner.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Position = UDim2.fromOffset(15, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "NEXUS UNIVERSAL"
+Title.TextColor3 = Theme.Text
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(35, 35)
+Close.Position = UDim2.new(1, -43, 0, 10)
+Close.BackgroundColor3 = Theme.Accent
+Close.Text = "X"
+Close.TextColor3 = Theme.Text
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 15
+Close.Parent = Header
+
+Instance.new("UICorner", Close).CornerRadius = UDim.new(0, 8)
+
+Close.MouseButton1Click:Connect(function()
+    GUI.Enabled = false
+end)
+
+-- ARRASTAR JANELA (MOUSE E TOUCH)
+
+local dragging = false
+local dragStart
+local startPosition
+
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPosition = Main.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and (
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+    ) then
+        local delta = input.Position - dragStart
+
+        Main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+-- ABAS
+
+local Tabs = Instance.new("Frame")
+Tabs.Position = UDim2.fromOffset(10, 65)
+Tabs.Size = UDim2.new(1, -20, 0, 38)
+Tabs.BackgroundTransparency = 1
+Tabs.Parent = Main
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.Padding = UDim.new(0, 5)
+TabLayout.Parent = Tabs
+
+local Content = Instance.new("ScrollingFrame")
+Content.Position = UDim2.fromOffset(10, 112)
+Content.Size = UDim2.new(1, -20, 1, -122)
+Content.BackgroundColor3 = Theme.Panel
+Content.BorderSizePixel = 0
+Content.ScrollBarThickness = 4
+Content.ScrollBarImageColor3 = Theme.Accent
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.CanvasSize = UDim2.new()
+Content.Parent = Main
+
+Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
+
+local Padding = Instance.new("UIPadding")
+Padding.PaddingTop = UDim.new(0, 10)
+Padding.PaddingLeft = UDim.new(0, 10)
+Padding.PaddingRight = UDim.new(0, 10)
+Padding.Parent = Content
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 8)
+Layout.Parent = Content
+
+local Pages = {}
+local CurrentPage = nil
+
+local function createPage(name)
+    local page = Instance.new("Frame")
+    page.Name = name
+    page.Size = UDim2.new(1, 0, 0, 0)
+    page.AutomaticSize = Enum.AutomaticSize.Y
+    page.BackgroundTransparency = 1
+    page.Visible = false
+    page.Parent = Content
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 8)
+    layout.Parent = page
+
+    Pages[name] = page
+    return page
+end
+
+local function selectPage(name)
+    CurrentPage = name
+
+    for pageName, page in pairs(Pages) do
+        page.Visible = pageName == name
+    end
+end
+
+local function createTab(name)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 75, 1, 0)
+    button.BackgroundColor3 = Theme.Background
+    button.Text = name
+    button.TextColor3 = Theme.Text
+    button.TextSize = 11
+    button.Font = Enum.Font.GothamBold
+    button.Parent = Tabs
+
+    Instance.new("UICorner", button).CornerRadius =
+        UDim.new(0, 6)
+
+    button.MouseButton1Click:Connect(function()
+        selectPage(name)
+    end)
+end
+
+local Home = createPage("HOME")
+local Visuals = createPage("VISUALS")
+local AimPage = createPage("AIM")
+local Settings = createPage("SETTINGS")
+
+createTab("HOME")
+createTab("VISUALS")
+createTab("AIM")
+createTab("SETTINGS")
+
+selectPage("HOME")
+
+-- COMPONENTES DA INTERFACE
+
+local function createLabel(parent, text)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 28)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Theme.Text
+    label.TextSize = 13
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = parent
+    return label
+end
+
+local function createButton(parent, text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 36)
+    button.BackgroundColor3 = Theme.Background
+    button.TextColor3 = Theme.Text
+    button.TextSize = 12
+    button.Font = Enum.Font.GothamSemibold
+    button.Text = text
+    button.Parent = parent
+
+    Instance.new("UICorner", button).CornerRadius =
+        UDim.new(0, 6)
+
+    button.MouseButton1Click:Connect(callback)
+    return button
+end
+
+local function toggle(parent, label, config, key)
+    local button
+
+    local function update()
+        button.Text = label .. ": " ..
+            (config[key] and "ON" or "OFF")
+
+        button.BackgroundColor3 =
+            config[key] and Theme.Accent or Theme.Background
+    end
+
+    button = createButton(parent, "", function()
+        config[key] = not config[key]
+        update()
+    end)
+
+    update()
+end
+
+-- HOME
+
+createLabel(Home, "NEXUS UNIVERSAL")
+createLabel(Home, "Security testing environment")
+createLabel(Home, "Status: Training mode")
+createLabel(Home, "Targets: Workspace/NEXUSTargets")
+
+createButton(Home, "REABRIR INTERFACE", function()
+    GUI.Enabled = true
+end)
+
+-- VISUALS
+
+createLabel(Visuals, "ESP CONFIGURATION")
+
+toggle(Visuals, "ESP", ESP, "Enabled")
+toggle(Visuals, "BOX", ESP, "Box")
+toggle(Visuals, "NAMES", ESP, "Names")
+toggle(Visuals, "DISTANCE", ESP, "Distance")
+toggle(Visuals, "HEALTH", ESP, "Health")
+toggle(Visuals, "LINES", ESP, "Lines")
+toggle(Visuals, "CHAMS", ESP, "Chams")
+
+local distanceLabel = createLabel(
+    Visuals,
+    "Maximum distance: " .. ESP.MaxDistance
+)
+
+createButton(Visuals, "DISTANCE + 100", function()
+    ESP.MaxDistance = math.min(ESP.MaxDistance + 100, 2000)
+    distanceLabel.Text =
+        "Maximum distance: " .. ESP.MaxDistance
+end)
+
+createButton(Visuals, "DISTANCE - 100", function()
+    ESP.MaxDistance = math.max(ESP.MaxDistance - 100, 100)
+    distanceLabel.Text =
+        "Maximum distance: " .. ESP.MaxDistance
+end)
+
+-- AIM TRAINER
+
+createLabel(AimPage, "AIM TRAINER")
+createLabel(AimPage, "Targets: NEXUS training dummies only")
+
+toggle(AimPage, "AIM TRAINER", Aim, "Enabled")
+
+local fovLabel = createLabel(
+    AimPage,
+    "FOV: " .. Aim.FOV
+)
+
+createButton(AimPage, "FOV + 20", function()
+    Aim.FOV = math.min(Aim.FOV + 20, 600)
+    fovLabel.Text = "FOV: " .. Aim.FOV
+end)
+
+createButton(AimPage, "FOV - 20", function()
+    Aim.FOV = math.max(Aim.FOV - 20, 40)
+    fovLabel.Text = "FOV: " .. Aim.FOV
+end)
+
+local smoothLabel = createLabel(
+    AimPage,
+    "Smoothness: " .. Aim.Smoothness
+)
+
+createButton(AimPage, "SMOOTHNESS +", function()
+    Aim.Smoothness = math.clamp(
+        Aim.Smoothness + 0.05, 0.05, 1
+    )
+    smoothLabel.Text =
+        "Smoothness: " .. Aim.Smoothness
+end)
+
+createButton(AimPage, "SMOOTHNESS -", function()
+    Aim.Smoothness = math.clamp(
+        Aim.Smoothness - 0.05, 0.05, 1
+    )
+    smoothLabel.Text =
+        "Smoothness: " .. Aim.Smoothness
+end)
+
+-- SETTINGS
+
+createLabel(Settings, "GENERAL SETTINGS")
+
+createButton(Settings, "HIDE MENU", function()
+    GUI.Enabled = false
+end)
+
+createButton(Settings, "RESET CONFIGURATION", function()
+    for key, value in pairs({
+        Enabled = true,
+        Box = true,
+        Names = true,
+        Distance = true,
+        Health = true,
+        Lines = true,
+        Chams = true
+    }) do
+        ESP[key] = value
+    end
+
+    Aim.Enabled = false
+    Aim.FOV = 180
+    Aim.Smoothness = 0.15
+end)
+
+-- ESP RENDERER
+
+local Overlay = Instance.new("ScreenGui")
+Overlay.Name = "NEXUS_ESP"
+Overlay.IgnoreGuiInset = true
+Overlay.ResetOnSpawn = false
+Overlay.DisplayOrder = 5
+Overlay.Parent = Player.PlayerGui
+
+local ESPObjects = {}
+
+local function makeESPObject(model)
+    local container = Instance.new("Frame")
+    container.Name = model.Name
+    container.BackgroundTransparency = 1
+    container.Size = UDim2.fromOffset(1, 1)
+    container.Parent = Overlay
+
+    local box = Instance.new("Frame")
+    box.BackgroundTransparency = 1
+    box.BorderSizePixel = 0
+    box.Parent = container
+
+    local boxStroke = Instance.new("UIStroke")
+    boxStroke.Color = Theme.Accent
+    boxStroke.Thickness = 2
+    boxStroke.Parent = box
+
+    local line = Instance.new("Frame")
+    line.BorderSizePixel = 0
+    line.BackgroundColor3 = Theme.Accent
+    line.AnchorPoint = Vector2.new(0, 0.5)
+    line.Parent = container
+
+    local name = Instance.new("TextLabel")
+    name.BackgroundTransparency = 1
+    name.TextColor3 = Theme.Text
+    name.TextStrokeTransparency = 0
+    name.Font = Enum.Font.GothamBold
+    name.TextSize = 12
+    name.Parent = container
+
+    local distance = Instance.new("TextLabel")
+    distance.BackgroundTransparency = 1
+    distance.TextColor3 = Theme.Green
+    distance.TextStrokeTransparency = 0
+    distance.Font = Enum.Font.Gotham
+    distance.TextSize = 11
+    distance.Parent = container
+
+    local healthBG = Instance.new("Frame")
+    healthBG.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    healthBG.BorderSizePixel = 0
+    healthBG.Parent = container
+
+    local healthFill = Instance.new("Frame")
+    healthFill.BackgroundColor3 = Theme.Green
+    healthFill.BorderSizePixel = 0
+    healthFill.Parent = healthBG
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "NEXUS_Highlight"
+    highlight.FillColor = Theme.Accent
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.FillTransparency = 0.65
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = model
+    highlight.Parent = Overlay
+
+    return {
+        Container = container,
+        Box = box,
+        Line = line,
+        Name = name,
+        Distance = distance,
+        HealthBG = healthBG,
+        HealthFill = healthFill,
+        Highlight = highlight
+    }
+end
+
+local function getCorners(model)
+    local cf, size = model:GetBoundingBox()
+    local corners = {}
+
+    for x = -1, 1, 2 do
+        for y = -1, 1, 2 do
+            for z = -1, 1, 2 do
+                table.insert(corners,
+                    cf:PointToWorldSpace(Vector3.new(
+                        size.X * x / 2,
+                        size.Y * y / 2,
+                        size.Z * z / 2
+                    ))
+                )
+            end
+        end
+    end
+
+    return corners
+end
+
+local function updateESP(model, data)
+    local root = model:FindFirstChild("HumanoidRootPart")
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+
+    if not root or not humanoid then
+        data.Container.Visible = false
+        return
+    end
+
+    local distance = (Camera.CFrame.Position - root.Position).Magnitude
+
+    if not ESP.Enabled or distance > ESP.MaxDistance then
+        data.Container.Visible = false
+        data.Highlight.Enabled = false
+        return
+    end
+
+    local minX, minY = math.huge, math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    local visible = false
+
+    for _, corner in ipairs(getCorners(model)) do
+        local point, onScreen = Camera:WorldToViewportPoint(corner)
+
+        if onScreen then
+            visible = true
+        end
+
+        if point.Z > 0 then
+            minX = math.min(minX, point.X)
+            minY = math.min(minY, point.Y)
+            maxX = math.max(maxX, point.X)
+            maxY = math.max(maxY, point.Y)
+        end
+    end
+
+    if not visible or minX == math.huge then
+        data.Container.Visible = false
+        data.Highlight.Enabled = false
+        return
+    end
+
+    data.Container.Visible = true
+    data.Highlight.Enabled = ESP.Chams
+
+    local width = math.max(maxX - minX, 2)
+    local height = math.max(maxY - minY, 2)
+
+    data.Box.Visible = ESP.Box
+    data.Box.Position = UDim2.fromOffset(minX, minY)
+    data.Box.Size = UDim2.fromOffset(width, height)
+
+    local center = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
+
+    local targetCenter = Vector2.new(
+        (minX + maxX) / 2,
+        (minY + maxY) / 2
+    )
+
+    local delta = targetCenter - center
+    local length = delta.Magnitude
+
+    data.Line.Visible = ESP.Lines
+    data.Line.Position = UDim2.fromOffset(center.X, center.Y)
+    data.Line.Size = UDim2.fromOffset(length, 1.5)
+    data.Line.Rotation = math.deg(
+        math.atan2(delta.Y, delta.X)
+    )
+
+    data.Name.Visible = ESP.Names
+    data.Name.Text = model.Name
+    data.Name.Size = UDim2.fromOffset(width + 50, 18)
+    data.Name.Position = UDim2.fromOffset(minX - 25, minY - 20)
+
+    data.Distance.Visible = ESP.Distance
+    data.Distance.Text = string.format("%.0f studs", distance)
+    data.Distance.Size = UDim2.fromOffset(width + 50, 16)
+    data.Distance.Position = UDim2.fromOffset(minX - 25, maxY + 2)
+
+    data.HealthBG.Visible = ESP.Health
+    data.HealthBG.Position = UDim2.fromOffset(minX - 6, minY)
+    data.HealthBG.Size = UDim2.fromOffset(4, height)
+
+    local healthPercent = math.clamp(
+        humanoid.Health / math.max(humanoid.MaxHealth, 1),
+        0, 1
+    )
+
+    data.HealthFill.Size = UDim2.new(1, 0, healthPercent, 0)
+    data.HealthFill.Position = UDim2.new(0, 0, 1 - healthPercent, 0)
+end
+
+-- FOV CIRCLE
+
+local FOVCircle = Instance.new("Frame")
+FOVCircle.Name = "FOV"
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.Position = UDim2.fromScale(0.5, 0.5)
+FOVCircle.Parent = Overlay
+
+local FOVCorner = Instance.new("UICorner")
+FOVCorner.CornerRadius = UDim.new(1, 0)
+FOVCorner.Parent = FOVCircle
+
+local FOVStroke = Instance.new("UIStroke")
+FOVStroke.Color = Theme.Accent
+FOVStroke.Thickness = 1.5
+FOVStroke.Parent = FOVCircle
+
+-- AIM TRAINER
+-- Só considera modelos dentro de Workspace.NEXUSTargets.
+
+local function findTrainingTarget()
+    local folder = workspace:FindFirstChild("NEXUSTargets")
+    if not folder then return nil end
+
+    local center = Vector2.new(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2
+    )
+
+    local bestTarget = nil
+    local bestDistance = Aim.FOV
+
+    for _, model in ipairs(folder:GetChildren()) do
+        if model:GetAttribute("IsNexusTarget") then
+            local head = model:FindFirstChild("Head")
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+
+            if head and humanoid and humanoid.Health > 0 then
+                local point, visible =
+                    Camera:WorldToViewportPoint(head.Position)
+
+                if visible then
+                    local screenPosition = Vector2.new(
+                        point.X, point.Y
+                    )
+
+                    local distance =
+                        (screenPosition - center).Magnitude
+
+                    if distance < bestDistance then
+                        bestDistance = distance
+                        bestTarget = head
+                    end
+                end
+            end
+        end
+    end
+
+    return bestTarget
+end
+
+-- LOOP PRINCIPAL
+
+RunService.RenderStepped:Connect(function()
+    Camera = workspace.CurrentCamera
+
+    local folder = workspace:FindFirstChild("NEXUSTargets")
+
+    if folder then
+        for _, model in ipairs(folder:GetChildren()) do
+            if model:IsA("Model")
+            and model:GetAttribute("IsNexusTarget") then
+
+                if not ESPObjects[model] then
+                    ESPObjects[model] = makeESPObject(model)
+                end
+
+                updateESP(model, ESPObjects[model])
+            end
+        end
+    end
+
+    for model, data in pairs(ESPObjects) do
+        if not model.Parent then
+            data.Container:Destroy()
+            data.Highlight:Destroy()
+            ESPObjects[model] = nil
+        end
+    end
+
+    FOVCircle.Visible = Aim.Enabled
+    FOVCircle.Size = UDim2.fromOffset(
+        Aim.FOV * 2,
+        Aim.FOV * 2
+    )
+
+    if Aim.Enabled then
+        local target = findTrainingTarget()
+
+        if target then
+            local goal = CFrame.lookAt(
+                Camera.CFrame.Position,
+                target.Position
+            )
+
+            Camera.CFrame = Camera.CFrame:Lerp(
+                goal,
+                Aim.Smoothness
+            )
+        end
+    end
+end)
+
+print("[NEXUS] Universal client initialized.")
